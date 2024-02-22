@@ -3,7 +3,6 @@ require("dotenv").config();
 
 const Table = require("cli-table");
 const {
-  generateSecretKey,
   finalizeEvent,
   verifyEvent,
   getPublicKey,
@@ -11,8 +10,6 @@ const {
 const { decode } = require("nostr-tools/nip19");
 const { encrypt } = require("nostr-tools/nip04");
 const { SimplePool } = require("nostr-tools/pool");
-const { Relay } = require("nostr-tools/relay");
-const { bytesToHex, hexToBytes } = require("@noble/hashes/utils");
 const { Command } = require("commander");
 
 const { buildOrderMessage } = require("./order");
@@ -29,7 +26,7 @@ const relays = [
   "wss://nos.lol",
 ];
 
-const myPrivKey = generateSecretKey();
+const myPrivKey = process.env.HEX_PRIVATE_KEY;
 const myPubKey = getPublicKey(myPrivKey);
 
 const objectify = (array) => {
@@ -121,6 +118,7 @@ const newOrder = async (
   buyer_invoice
 ) => {
   const order = buildOrderMessage(
+    null,
     myPubKey,
     "NewOrder",
     kind,
@@ -133,9 +131,8 @@ const newOrder = async (
     buyer_invoice
   );
   // private key to sign the event
-  const sk = bytesToHex(myPrivKey);
   const jsonOrder = JSON.stringify(order);
-  const encryptedOrder = await encrypt(sk, mostro_pubkey, jsonOrder);
+  const encryptedOrder = await encrypt(myPrivKey, mostro_pubkey, jsonOrder);
 
   let event = finalizeEvent(
     {
@@ -144,13 +141,37 @@ const newOrder = async (
       tags: [["p", mostro_pubkey]],
       content: encryptedOrder,
     },
-    sk
+    myPrivKey
   );
-  let isGood = verifyEvent(event);
-  // const x = await Promise.any(pool.publish(relays, event));
-  const relay = await Relay.connect("wss://relay.damus.io");
-  await relay.publish(event);
-  relay.close();
+  const ok = verifyEvent(event);
+  if (!ok) {
+    console.log("Event not verified");
+    return;
+  }
+  await Promise.any(pool.publish(relays, event));
+};
+
+const cancel = async (id) => {
+  const orderMessage = buildOrderMessage(id, myPubKey, "Cancel");
+  // private key to sign the event
+  const jsonOrder = JSON.stringify(orderMessage);
+  const encryptedOrder = await encrypt(myPrivKey, mostro_pubkey, jsonOrder);
+
+  let event = finalizeEvent(
+    {
+      kind: 4,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [["p", mostro_pubkey]],
+      content: encryptedOrder,
+    },
+    myPrivKey
+  );
+  const ok = verifyEvent(event);
+  if (!ok) {
+    console.log("Event not verified");
+    return;
+  }
+  await Promise.any(pool.publish(relays, event));
 };
 
 async function main() {
@@ -181,15 +202,6 @@ async function main() {
         premium,
         buyer_invoice
       ) => {
-        console.log(
-          kind,
-          amount,
-          fiat_code,
-          fiat_amount,
-          payment_method,
-          premium,
-          buyer_invoice
-        );
         const order = newOrder(
           kind,
           amount,
@@ -203,6 +215,14 @@ async function main() {
       }
     );
 
+  program
+    .command("cancel")
+    .argument("<id>", "Order Id to cancel")
+    .description("Cancel a pending order")
+    .action((id) => {
+      const c = cancel(id, myPubKey, "Cancel");
+      console.log(c);
+    });
   program.parse(process.argv);
 }
 
