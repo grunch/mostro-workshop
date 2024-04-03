@@ -18,12 +18,17 @@ const NOSTR_REPLACEABLE_EVENT_KIND = 38383;
 
 const pool = new SimplePool();
 const { _, data } = decode(process.env.MOSTRO_NPUB);
-const mostro_pubkey = data;
+const mostroPubkey = data;
 const relays = [
-  "wss://nostr.wine",
-  "wss://btc.klendazu.com",
-  "wss://relay.damus.io",
   "wss://nos.lol",
+  "wss://relay.damus.io",
+  "wss://nostr-pub.wellorder.net",
+  "wss://nostr.mutinywallet.com",
+  "wss://relay.nostr.band",
+  "wss://nostr.cizmar.net",
+  "wss://140.f7z.io",
+  "wss://nostrrelay.com",
+  "wss://relay.nostrr.de",
 ];
 
 const myPrivKey = process.env.HEX_PRIVATE_KEY;
@@ -67,9 +72,9 @@ const since = parseInt(Date.now() / 1000 - daysInSecs);
 
 const filters = {
   kinds: [NOSTR_REPLACEABLE_EVENT_KIND],
-  authors: [mostro_pubkey],
+  authors: [mostroPubkey],
   since,
-  "#s": ["Pending"],
+  "#s": ["pending"],
 };
 
 const listOrders = async () => {
@@ -120,7 +125,7 @@ const newOrder = async (
   const order = buildOrderMessage(
     null,
     myPubKey,
-    "NewOrder",
+    "new-order",
     kind,
     status,
     amount,
@@ -132,13 +137,13 @@ const newOrder = async (
   );
   // private key to sign the event
   const jsonOrder = JSON.stringify(order);
-  const encryptedOrder = await encrypt(myPrivKey, mostro_pubkey, jsonOrder);
+  const encryptedOrder = await encrypt(myPrivKey, mostroPubkey, jsonOrder);
 
   let event = finalizeEvent(
     {
       kind: 4,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["p", mostro_pubkey]],
+      tags: [["p", mostroPubkey]],
       content: encryptedOrder,
     },
     myPrivKey
@@ -152,16 +157,16 @@ const newOrder = async (
 };
 
 const cancel = async (id) => {
-  const orderMessage = buildOrderMessage(id, myPubKey, "Cancel");
+  const orderMessage = buildOrderMessage(id, myPubKey, "cancel");
   // private key to sign the event
   const jsonOrder = JSON.stringify(orderMessage);
-  const encryptedOrder = await encrypt(myPrivKey, mostro_pubkey, jsonOrder);
+  const encryptedOrder = await encrypt(myPrivKey, mostroPubkey, jsonOrder);
 
   let event = finalizeEvent(
     {
       kind: 4,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["p", mostro_pubkey]],
+      tags: [["p", mostroPubkey]],
       content: encryptedOrder,
     },
     myPrivKey
@@ -220,7 +225,7 @@ async function main() {
     .argument("<id>", "Order Id to cancel")
     .description("Cancel a pending order")
     .action((id) => {
-      const c = cancel(id, myPubKey, "Cancel");
+      const c = cancel(id);
       console.log(c);
     });
   program.parse(process.argv);

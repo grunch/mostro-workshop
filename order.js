@@ -12,20 +12,20 @@ exports.buildOrderMessage = (
 ) => {
   let content = null;
   let order_message = {
-    Order: {
+    order: {
       version: 1,
       pubkey,
       action,
       content,
     },
   };
-  if (action == "NewOrder") {
-    const k = kind.charAt(0).toUpperCase() + kind.slice(1);
+  if (action == "new-order") {
+    const k = kind.toLowerCase();
     const fiat = fiat_code.toUpperCase();
     content = {
-      Order: {
+      order: {
         kind: k,
-        status: "Pending",
+        status: "pending",
         amount: parseInt(amount),
         fiat_code: fiat,
         fiat_amount: parseInt(fiat_amount),
@@ -35,9 +35,9 @@ exports.buildOrderMessage = (
         created_at: 0,
       },
     };
-    order_message.Order.content = content;
-  } else if (action == "Cancel") {
-    order_message.Order.id = id;
+    order_message.order.content = content;
+  } else if (action == "cancel") {
+    order_message.order.id = id;
   }
   return order_message;
 };
